@@ -1,0 +1,96 @@
+import type { AuthResponse, Offer, Quote, Trip, User } from '@/lib/types';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+
+type RequestOptions = RequestInit & {
+  token?: string | null;
+  idempotencyKey?: string;
+};
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(options.idempotencyKey
+        ? { 'Idempotency-Key': options.idempotencyKey }
+        : {}),
+      ...options.headers,
+    },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: 'Request failed' }));
+    const detail =
+      typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+    throw new Error(detail || `Request failed (${response.status})`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  login: (email: string, password: string) =>
+    request<AuthResponse>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  me: (token: string) => request<User>('/api/v1/me', { token }),
+  quote: (
+    token: string,
+    data: { pickup_address: string; destination_address: string },
+  ) =>
+    request<Quote>('/api/v1/quotes', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ ...data, estimated_miles: 5.4, estimated_minutes: 16 }),
+    }),
+  book: (
+    token: string,
+    idempotencyKey: string,
+    data: {
+      pickup_address: string;
+      destination_address: string;
+      accepted_fare_cents: number;
+      payment_method: 'CASH' | 'SANDBOX_CARD';
+      for_someone_else: boolean;
+      guest_passenger_name?: string;
+      guest_passenger_phone?: string;
+      guest_communication_consent?: boolean;
+      payment_responsibility: string;
+    },
+  ) =>
+    request<Trip>('/api/v1/bookings', {
+      method: 'POST',
+      token,
+      idempotencyKey,
+      body: JSON.stringify(data),
+    }),
+  trips: (token: string) => request<Trip[]>('/api/v1/trips', { token }),
+  offers: (token: string) => request<Offer[]>('/api/v1/driver/offers', { token }),
+  acceptOffer: (token: string, offerId: string) =>
+    request<Trip>(`/api/v1/driver/offers/${offerId}/accept`, {
+      method: 'POST',
+      token,
+    }),
+  availability: (token: string, availability: 'ONLINE' | 'OFFLINE') =>
+    request<User>('/api/v1/driver/availability', {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({
+        availability: availability === 'ONLINE' ? 'AVAILABLE' : 'OFFLINE',
+      }),
+    }),
+  transition: (
+    token: string,
+    tripId: string,
+    newState: string,
+    cashCollected = false,
+  ) =>
+    request<Trip>(`/api/v1/trips/${tripId}/transition`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ new_state: newState, cash_collected: cashCollected }),
+    }),
+  startOnboarding: (token: string) =>
+    request<User>('/api/v1/driver/onboarding', { method: 'POST', token }),
+};
