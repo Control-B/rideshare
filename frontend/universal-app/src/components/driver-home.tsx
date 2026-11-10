@@ -131,9 +131,9 @@ export function DriverHome() {
           onPress={() => availability.mutate()}
           style={[styles.power, isOnline && styles.powerOnline]}>
           {availability.isPending ? (
-            <ActivityIndicator color={isOnline ? colors.white : colors.forest} />
+            <ActivityIndicator color={isOnline ? colors.white : colors.mint} />
           ) : (
-            <Power color={isOnline ? colors.white : colors.forest} size={25} />
+            <Power color={isOnline ? colors.white : colors.mint} size={25} />
           )}
         </Pressable>
       </View>
@@ -241,17 +241,17 @@ const styles = StyleSheet.create({
   title: { color: colors.ink, fontSize: 30, lineHeight: 36, fontWeight: '800', marginTop: 4 },
   subtitle: { color: colors.muted, fontSize: 14, marginTop: 4 },
   driverTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  power: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
+  power: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   powerOnline: { backgroundColor: colors.emerald, borderColor: colors.emerald },
-  onboardingCard: { backgroundColor: colors.white, borderRadius: radius.large, padding: 22, gap: 14, ...shadow },
+  onboardingCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.large, padding: 22, gap: 14, ...shadow },
   onboardingIcon: { width: 52, height: 52, borderRadius: 18, backgroundColor: colors.mist, alignItems: 'center', justifyContent: 'center' },
   cardTitle: { color: colors.ink, fontSize: 21, fontWeight: '800' },
   body: { color: colors.muted, fontSize: 14, lineHeight: 21 },
-  pendingBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFF4DD', borderRadius: radius.medium, padding: 13 },
+  pendingBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#3B311D', borderRadius: radius.medium, padding: 13 },
   pendingText: { color: colors.amber, fontWeight: '700' },
   primary: { minHeight: 52, borderRadius: radius.medium, backgroundColor: colors.forest, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 9 },
   primaryText: { color: colors.white, fontWeight: '800', fontSize: 15 },
-  waitingCard: { alignItems: 'center', backgroundColor: colors.white, borderRadius: radius.large, padding: 28, gap: 9, ...shadow },
+  waitingCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.large, padding: 28, gap: 9, ...shadow },
   tripCard: { backgroundColor: colors.forest, borderRadius: radius.large, padding: 18, gap: 16, ...shadow },
   tripStatus: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tripStatusText: { color: colors.mint, fontSize: 11, fontWeight: '900', letterSpacing: 0.7 },
@@ -267,16 +267,16 @@ const styles = StyleSheet.create({
   cashNoticeText: { color: colors.white, fontWeight: '700' },
   tripAction: { minHeight: 54, borderRadius: radius.medium, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   tripActionText: { color: colors.forest, fontWeight: '900' },
-  offerCard: { backgroundColor: colors.white, borderRadius: radius.large, padding: 18, gap: 10, borderWidth: 2, borderColor: colors.mint, ...shadow },
+  offerCard: { backgroundColor: colors.surface, borderRadius: radius.large, padding: 18, gap: 10, borderWidth: 1, borderColor: colors.emerald, ...shadow },
   offerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   offerEyebrow: { color: colors.emerald, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   offerFare: { color: colors.ink, fontSize: 26, fontWeight: '900', marginTop: 2 },
-  offerTimer: { color: colors.amber, fontWeight: '800', backgroundColor: '#FFF4DD', paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
+  offerTimer: { color: colors.amber, fontWeight: '800', backgroundColor: '#3B311D', paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
   offerRoute: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   offerArrow: { color: colors.emerald, fontSize: 18 },
   error: { color: '#FFD0CC', fontSize: 12 },
   earningsRow: { flexDirection: 'row', gap: 12 },
-  metric: { flex: 1, backgroundColor: colors.white, borderRadius: radius.medium, padding: 16, gap: 4 },
+  metric: { flex: 1, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.medium, padding: 16, gap: 4 },
   metricValue: { color: colors.ink, fontSize: 19, fontWeight: '900' },
   metricLabel: { color: colors.muted, fontSize: 11 },
 });

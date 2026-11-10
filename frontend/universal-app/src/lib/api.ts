@@ -8,17 +8,30 @@ type RequestOptions = RequestInit & {
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
-      ...(options.idempotencyKey
-        ? { 'Idempotency-Key': options.idempotencyKey }
-        : {}),
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+        ...(options.idempotencyKey
+          ? { 'Idempotency-Key': options.idempotencyKey }
+          : {}),
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Network request failed';
+    throw new Error(
+      `Cannot reach the API at ${API_URL}. Check EXPO_PUBLIC_API_URL and restart Expo. ${reason}`,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: 'Request failed' }));
     const detail =
