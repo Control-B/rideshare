@@ -5,7 +5,6 @@ import {
   Banknote,
   Clock3,
   LocateFixed,
-  MapPin,
   Navigation,
   ShieldCheck,
   UserRoundPlus,
@@ -28,6 +27,7 @@ import { api } from '@/lib/api';
 import { colors, radius, shadow } from '@/lib/theme';
 import type { Quote } from '@/lib/types';
 import { useAppStore } from '@/store/app-store';
+import { MapPanel } from './map-panel';
 
 const bookingSchema = z
   .object({
@@ -151,17 +151,7 @@ export function RiderHome() {
         </View>
       ) : null}
 
-      <View style={styles.map}>
-        <View style={[styles.road, styles.roadOne]} />
-        <View style={[styles.road, styles.roadTwo]} />
-        <View style={styles.mapPin}>
-          <MapPin color={colors.white} fill={colors.emerald} size={28} />
-        </View>
-        <View style={styles.mapCaption}>
-          <LocateFixed color={colors.emerald} size={15} />
-          <Text style={styles.mapCaptionText}>Foreground location ready</Text>
-        </View>
-      </View>
+      <MapPanel />
 
       <View style={styles.bookingCard}>
         <View style={styles.inputRow}>
@@ -330,14 +320,7 @@ const styles = StyleSheet.create({
   activeLabel: { color: colors.mint, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
   activeRoute: { color: colors.white, fontSize: 14, fontWeight: '700', marginTop: 3 },
   activeFare: { color: colors.white, fontWeight: '800' },
-  map: { height: 180, overflow: 'hidden', backgroundColor: colors.sky, borderRadius: radius.large, position: 'relative' },
-  road: { position: 'absolute', height: 22, width: '140%', backgroundColor: colors.surfaceRaised, opacity: 0.9 },
-  roadOne: { top: 65, left: -40, transform: [{ rotate: '-12deg' }] },
-  roadTwo: { top: 80, left: -80, transform: [{ rotate: '62deg' }] },
-  mapPin: { position: 'absolute', left: '48%', top: 58 },
-  mapCaption: { position: 'absolute', bottom: 12, left: 12, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: colors.surface },
-  mapCaptionText: { color: colors.ink, fontSize: 11, fontWeight: '800' },
-  bookingCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.large, padding: 18, gap: 12, ...shadow },
+  bookingCard: { backgroundColor: colors.white, borderRadius: radius.large, padding: 18, gap: 12, ...shadow },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dotPickup: { width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: colors.emerald },
   dotDestination: { width: 12, height: 12, borderRadius: 3, backgroundColor: colors.forest },
@@ -355,7 +338,7 @@ const styles = StyleSheet.create({
   quoteLabel: { color: colors.ink, fontWeight: '800' },
   quoteMeta: { flexDirection: 'row', gap: 5, alignItems: 'center', marginTop: 4 },
   quoteHint: { color: colors.muted, fontSize: 11 },
-  quotePrice: { color: colors.mint, fontSize: 22, fontWeight: '900' },
+  quotePrice: { color: colors.forest, fontSize: 22, fontWeight: '900' },
   paymentRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   paymentText: { color: colors.muted, fontSize: 13 },
   primary: { minHeight: 54, borderRadius: radius.medium, backgroundColor: colors.forest, alignItems: 'center', justifyContent: 'center' },

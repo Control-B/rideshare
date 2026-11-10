@@ -93,6 +93,10 @@ def test_guest_cash_trip_end_to_end(
 
 
 def test_rider_cannot_use_driver_api(client: TestClient, rider_auth: dict[str, str]):
+    profile = client.get("/api/v1/me", headers=rider_auth)
+    assert profile.status_code == 200
+    assert profile.json()["full_name"] == "Banjah"
+
     response = client.get("/api/v1/driver/offers", headers=rider_auth)
     assert response.status_code == 403
 

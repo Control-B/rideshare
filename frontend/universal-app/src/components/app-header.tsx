@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 4,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: '#E3EAF5',
   },
   modeButton: {
     flex: 1,
@@ -99,11 +99,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.pill,
   },
-  modeButtonActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
+  modeButtonActive: { backgroundColor: colors.white },
   modeText: { color: colors.muted, fontSize: 15, fontWeight: '700' },
   modeTextActive: { color: colors.ink },
   onlineBanner: { flexDirection: 'row', gap: 7, alignItems: 'center', alignSelf: 'flex-end' },

@@ -91,16 +91,22 @@ def create_user(
 
 def seed_demo_data() -> None:
     with SessionLocal() as session:
-        if session.scalar(select(User.id).limit(1)):
-            return
-        create_user(session, "rider@example.test", "Riley Rider", "demo-pass-123")
-        create_user(
-            session,
-            "driver@example.test",
-            "Devon Driver",
-            "demo-pass-123",
-            approved_driver=True,
-        )
+        rider = session.scalar(select(User).where(User.email == "rider@example.test"))
+        if rider:
+            rider.full_name = "Banjah"
+            session.commit()
+        else:
+            create_user(session, "rider@example.test", "Banjah", "demo-pass-123")
+
+        driver = session.scalar(select(User).where(User.email == "driver@example.test"))
+        if not driver:
+            create_user(
+                session,
+                "driver@example.test",
+                "Devon Driver",
+                "demo-pass-123",
+                approved_driver=True,
+            )
 
 
 @asynccontextmanager

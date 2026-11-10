@@ -1,18 +1,16 @@
 export const colors = {
-  ink: '#F5F8FF',
-  forest: '#123B78',
-  emerald: '#3B82F6',
-  mint: '#93C5FD',
-  mist: '#173456',
-  sand: '#061224',
-  surface: '#0D203B',
-  surfaceRaised: '#122A49',
+  ink: '#091A3A',
+  forest: '#0B2A5B',
+  emerald: '#1F5FBF',
+  mint: '#D7E7FF',
+  mist: '#F0F5FC',
+  sand: '#F7F9FC',
   white: '#FFFFFF',
-  muted: '#AABAD0',
-  border: '#264667',
-  danger: '#FF7B72',
-  amber: '#FBBF24',
-  sky: '#0A294A',
+  muted: '#5E6D86',
+  border: '#D4DEED',
+  danger: '#B42318',
+  amber: '#A15C00',
+  sky: '#DCE9F8',
 } as const;
 
 export const radius = {
@@ -23,9 +21,9 @@ export const radius = {
 } as const;
 
 export const shadow = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 12 },
-  shadowOpacity: 0.3,
-  shadowRadius: 28,
-  elevation: 5,
+  shadowColor: '#091A3A',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.08,
+  shadowRadius: 24,
+  elevation: 3,
 } as const;
