@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   routeCopy: { flex: 1, gap: 3 },
   routeLabel: { color: colors.mint, fontSize: 9, fontWeight: '900', marginTop: 1 },
   routeAddress: { color: colors.white, fontSize: 15, fontWeight: '700', marginBottom: 9 },
-  cashNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#215B47', borderRadius: radius.small, padding: 12 },
+  cashNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#163F7A', borderRadius: radius.small, padding: 12 },
   cashNoticeText: { color: colors.white, fontWeight: '700' },
   tripAction: { minHeight: 54, borderRadius: radius.medium, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   tripActionText: { color: colors.forest, fontWeight: '900' },

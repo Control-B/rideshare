@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 4,
     borderRadius: radius.pill,
-    backgroundColor: '#E3E9E5',
+    backgroundColor: '#E3EAF5',
   },
   modeButton: {
     flex: 1,
