@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,13 +10,23 @@ import { HistoryScreen } from '@/components/history-screen';
 import { MoreScreen } from '@/components/more-screen';
 import { RiderHome } from '@/components/rider-home';
 import { ScheduleScreen } from '@/components/schedule-screen';
+import { api } from '@/lib/api';
 import { colors } from '@/lib/theme';
 import { useAppStore } from '@/store/app-store';
 
 export default function HomeScreen() {
   const token = useAppStore((state) => state.token);
   const mode = useAppStore((state) => state.mode);
+  const updateUser = useAppStore((state) => state.updateUser);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
+
+  useEffect(() => {
+    if (!token) return;
+    api.me(token).then(updateUser).catch(() => {
+      // Keep the cached profile available when the API is temporarily unreachable.
+    });
+  }, [token, updateUser]);
+
   if (!token) return <AuthScreen />;
 
   const content = {
