@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: mobility
+      POSTGRES_USER: mobility
+      POSTGRES_PASSWORD: local_only_change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mobility"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      MOBILITY_DATABASE_URL: postgresql+psycopg://mobility:local_only_change_me@postgres:5432/mobility
+      MOBILITY_JWT_SECRET: local-compose-secret-change-me
+      MOBILITY_CORS_ORIGINS: http://localhost:8081,http://localhost:19006
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

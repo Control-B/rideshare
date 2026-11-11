@@ -1,0 +1,41 @@
+[project]
+name = "mobility-platform-api"
+version = "0.1.0"
+description = "Authoritative API for the configurable rideshare platform"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.17.0",
+  "fastapi>=0.128.0",
+  "httpx>=0.28.0",
+  "psycopg[binary]>=3.2.0",
+  "pwdlib[argon2]>=0.3.0",
+  "pyjwt>=2.10.0",
+  "pydantic-settings>=2.11.0",
+  "sqlalchemy>=2.0.44",
+  "uvicorn[standard]>=0.38.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4.0",
+  "pytest-cov>=7.0.0",
+  "ruff>=0.14.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
