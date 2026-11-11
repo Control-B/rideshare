@@ -13,6 +13,14 @@ Backend tests exercise the implemented vertical slice:
 - cash collection record
 - rider denial on driver APIs
 - onboarding without implicit approval
+- road-ETA ranking instead of straight-line ordering
+- configurable search-radius expansion
+- stale and inaccurate location rejection
+- fraud-review event creation
+- coordinate booking and ranked offer creation
+- rejection recovery to the next candidate
+- simultaneous offer acceptance with exactly one winner
+- authenticated WebSocket connection and heartbeat
 
 Run:
 
@@ -27,8 +35,9 @@ npx tsc --noEmit
 npx expo export --platform web
 ```
 
-CI runs lint, types, tests, migration, and web export. PostgreSQL concurrency tests
-with simultaneous driver transactions, Playwright web journeys, Maestro device
-journeys, provider contract tests, accessibility automation, and load/chaos tests are
-required in later milestones. SQLite tests are not evidence of PostGIS performance or
+CI runs lint, types, tests, migration, and web export. The included simultaneous
+acceptance test verifies the conditional assignment guard on SQLite. PostgreSQL
+transaction-isolation tests, PostGIS query-plan checks, Playwright web journeys,
+Maestro device journeys, provider contract tests, accessibility automation, and
+load/chaos tests remain required. SQLite is not evidence of PostGIS performance or
 full production concurrency behavior.

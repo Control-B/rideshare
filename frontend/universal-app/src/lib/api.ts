@@ -1,6 +1,19 @@
-import type { AuthResponse, Offer, Quote, Trip, User } from '@/lib/types';
+import type {
+  AuthResponse,
+  DriverLocation,
+  NearbyVehicle,
+  Offer,
+  Quote,
+  Trip,
+  User,
+} from '@/lib/types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+
+export function realtimeUrl(token: string) {
+  const base = API_URL.replace(/^http/, 'ws');
+  return `${base}/api/v1/realtime?token=${encodeURIComponent(token)}`;
+}
 
 type RequestOptions = RequestInit & {
   token?: string | null;
@@ -38,6 +51,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
     throw new Error(detail || `Request failed (${response.status})`);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -50,7 +64,14 @@ export const api = {
   me: (token: string) => request<User>('/api/v1/me', { token }),
   quote: (
     token: string,
-    data: { pickup_address: string; destination_address: string },
+    data: {
+      pickup_address: string;
+      destination_address: string;
+      pickup_latitude?: number;
+      pickup_longitude?: number;
+      destination_latitude?: number;
+      destination_longitude?: number;
+    },
   ) =>
     request<Quote>('/api/v1/quotes', {
       method: 'POST',
@@ -70,6 +91,10 @@ export const api = {
       guest_passenger_phone?: string;
       guest_communication_consent?: boolean;
       payment_responsibility: string;
+      pickup_latitude?: number;
+      pickup_longitude?: number;
+      destination_latitude?: number;
+      destination_longitude?: number;
     },
   ) =>
     request<Trip>('/api/v1/bookings', {
@@ -85,6 +110,37 @@ export const api = {
       method: 'POST',
       token,
     }),
+  rejectOffer: (token: string, offerId: string) =>
+    request<void>(`/api/v1/driver/offers/${offerId}/reject`, {
+      method: 'POST',
+      token,
+    }),
+  updateDriverLocation: (
+    token: string,
+    location: {
+      latitude: number;
+      longitude: number;
+      accuracy_meters: number;
+      speed_mps?: number | null;
+      heading_degrees?: number | null;
+      observed_at: string;
+    },
+  ) =>
+    request<DriverLocation>('/api/v1/driver/location', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(location),
+    }),
+  nearbyVehicles: (
+    token: string,
+    latitude: number,
+    longitude: number,
+    radiusMiles = 2,
+  ) =>
+    request<NearbyVehicle[]>(
+      `/api/v1/vehicles/nearby?latitude=${latitude}&longitude=${longitude}&radius_miles=${radiusMiles}`,
+      { token },
+    ),
   availability: (token: string, availability: 'ONLINE' | 'OFFLINE') =>
     request<User>('/api/v1/driver/availability', {
       method: 'PUT',

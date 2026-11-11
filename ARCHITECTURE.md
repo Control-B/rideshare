@@ -10,10 +10,10 @@ for the target architecture, while SQLite keeps the no-cost local demo simple.
 ```text
 Expo / React Native Web
         |
-   HTTP + OpenAPI
+ HTTP + authenticated WebSocket
         |
 FastAPI modular API
-  identity | pricing | booking | dispatch | trip | cash ledger
+ identity | pricing | geospatial | dispatch | trip | cash ledger
         |
  PostgreSQL/PostGIS       Redis
 ```
@@ -32,6 +32,25 @@ services. A channel cannot create assignments or settle payments directly.
 - Cash reported by a driver is `REPORTED_COLLECTED`, not platform-settled cash.
 - Accepted fare is stored in integer cents on the ride request.
 - Idempotency is unique per booking account and key.
+- Only fresh, accurate locations from approved drivers can enter presence.
+- Legal/operational eligibility is filtered before ETA ranking.
+- Vehicle markers shown before assignment use rounded, approximate coordinates.
+
+## Geospatial and real-time boundary
+
+`RoutingProvider` isolates road-network ETA providers. The current
+`DeterministicRoutingProvider` is free, deterministic, and explicitly synthetic; it can
+be replaced by an authorized Google Routes or Mapbox Matrix adapter. Configurable
+2/5/10-mile defaults expand until eligible candidates are found, then candidates are
+ranked by pickup ETA.
+
+SQLite uses portable latitude/longitude filtering for tests. PostgreSQL migrations add
+generated PostGIS geography values and GiST indexes; `ST_DWithin` performs the
+production candidate search. Driver presence is short-lived while immutable location
+events support narrowly retained integrity review.
+
+The current WebSocket manager supports one API process. Production requires Redis
+pub/sub fan-out, durable recovery jobs, and an outbox so events survive process failure.
 
 ## Planned boundaries
 
@@ -42,6 +61,7 @@ the next reliability boundary before any extraction.
 
 ## Expo compatibility
 
-SDK 57 is intentionally used for current physical-device Expo Go availability.
-Foreground location works in Expo Go. Background location, production push behavior,
-and native payment SDKs move to development builds and platform-specific adapters.
+The project currently uses SDK 57. Foreground location is the Expo Go-compatible path,
+but the App Store Expo Go client may support an older SDK; use a matching simulator or
+development build when versions differ. Background location, production push
+behavior, and native payment SDKs require development builds and platform adapters.

@@ -26,6 +26,7 @@ import { z } from 'zod';
 import { api } from '@/lib/api';
 import { colors, radius, shadow } from '@/lib/theme';
 import type { Quote } from '@/lib/types';
+import { useRealtimeUpdates } from '@/lib/use-realtime';
 import { useAppStore } from '@/store/app-store';
 import { MapPanel } from './map-panel';
 
@@ -48,14 +49,38 @@ const bookingSchema = z
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
+const DEFAULT_CENTER = { latitude: 25.7617, longitude: -80.1918 };
+
+function coordinates(data: BookingForm) {
+  const parse = (value: string) => {
+    const match = value.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (!match) return null;
+    const latitude = Number(match[1]);
+    const longitude = Number(match[2]);
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+    return { latitude, longitude };
+  };
+  const pickup = parse(data.pickup);
+  const destination = parse(data.destination);
+  if (!pickup || !destination) return {};
+  return {
+    pickup_latitude: pickup.latitude,
+    pickup_longitude: pickup.longitude,
+    destination_latitude: destination.latitude,
+    destination_longitude: destination.longitude,
+  };
+}
+
 export function RiderHome() {
   const token = useAppStore((state) => state.token)!;
   const userId = useAppStore((state) => state.user!.id);
   const draft = useAppStore((state) => state.bookingDraft);
   const setDraft = useAppStore((state) => state.setBookingDraft);
+  useRealtimeUpdates(token, userId);
   const queryClient = useQueryClient();
   const [quote, setQuote] = React.useState<Quote | null>(null);
   const [locationBusy, setLocationBusy] = React.useState(false);
+  const [mapCenter, setMapCenter] = React.useState(DEFAULT_CENTER);
   const {
     control,
     handleSubmit,
@@ -76,6 +101,7 @@ export function RiderHome() {
       api.quote(token, {
         pickup_address: data.pickup,
         destination_address: data.destination,
+        ...coordinates(data),
       }),
     onSuccess: setQuote,
   });
@@ -91,11 +117,18 @@ export function RiderHome() {
         guest_passenger_phone: data.forSomeoneElse ? data.guestPhone : undefined,
         guest_communication_consent: data.forSomeoneElse,
         payment_responsibility: data.forSomeoneElse ? 'PASSENGER' : 'BOOKER',
+        ...coordinates(data),
       }),
     onSuccess: () => {
       setQuote(null);
       queryClient.invalidateQueries({ queryKey: ['trips', userId] });
     },
+  });
+  const nearbyVehicles = useQuery({
+    queryKey: ['nearby-vehicles', mapCenter.latitude, mapCenter.longitude],
+    queryFn: () =>
+      api.nearbyVehicles(token, mapCenter.latitude, mapCenter.longitude),
+    refetchInterval: 8_000,
   });
 
   const submit = (data: BookingForm) => {
@@ -116,6 +149,10 @@ export function RiderHome() {
         'pickup',
         `${result.coords.latitude.toFixed(5)}, ${result.coords.longitude.toFixed(5)}`,
       );
+      setMapCenter({
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+      });
       setQuote(null);
     } finally {
       setLocationBusy(false);
@@ -151,7 +188,7 @@ export function RiderHome() {
         </View>
       ) : null}
 
-      <MapPanel />
+      <MapPanel center={mapCenter} vehicles={nearbyVehicles.data} />
 
       <View style={styles.bookingCard}>
         <View style={styles.inputRow}>

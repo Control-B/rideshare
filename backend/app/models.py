@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -101,6 +102,65 @@ class DriverProfile(Base):
     user: Mapped[User] = relationship(back_populates="driver_profile")
 
 
+class DriverLocationEvent(Base):
+    __tablename__ = "driver_location_events"
+    __table_args__ = (
+        Index("ix_driver_location_observed", "driver_id", "observed_at"),
+        CheckConstraint("latitude >= -90 AND latitude <= 90", name="ck_location_latitude"),
+        CheckConstraint("longitude >= -180 AND longitude <= 180", name="ck_location_longitude"),
+        CheckConstraint("accuracy_meters >= 0", name="ck_location_accuracy"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    driver_id: Mapped[str] = mapped_column(ForeignKey("driver_profiles.id"), index=True)
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    accuracy_meters: Mapped[float] = mapped_column(Float)
+    speed_mps: Mapped[float | None] = mapped_column(Float)
+    heading_degrees: Mapped[float | None] = mapped_column(Float)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    anomaly_code: Mapped[str | None] = mapped_column(String(64), index=True)
+
+
+class DriverPresence(Base):
+    __tablename__ = "driver_presence"
+    __table_args__ = (
+        CheckConstraint("latitude >= -90 AND latitude <= 90", name="ck_presence_latitude"),
+        CheckConstraint("longitude >= -180 AND longitude <= 180", name="ck_presence_longitude"),
+        Index("ix_driver_presence_freshness", "expires_at", "observed_at"),
+    )
+
+    driver_id: Mapped[str] = mapped_column(
+        ForeignKey("driver_profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    accuracy_meters: Mapped[float] = mapped_column(Float)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class ServiceZone(Base):
+    __tablename__ = "service_zones"
+    __table_args__ = (
+        CheckConstraint("min_latitude < max_latitude", name="ck_zone_latitude"),
+        CheckConstraint("min_longitude < max_longitude", name="ck_zone_longitude"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    market_code: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    operating_mode: Mapped[str] = mapped_column(String(24), default="HYBRID")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    compliance_reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    min_latitude: Mapped[float] = mapped_column(Float)
+    max_latitude: Mapped[float] = mapped_column(Float)
+    min_longitude: Mapped[float] = mapped_column(Float)
+    max_longitude: Mapped[float] = mapped_column(Float)
+
+
 class RideRequest(Base):
     __tablename__ = "ride_requests"
     __table_args__ = (UniqueConstraint("booker_user_id", "idempotency_key", name="uq_booking_key"),)
@@ -114,6 +174,10 @@ class RideRequest(Base):
     payment_responsibility: Mapped[str] = mapped_column(String(32))
     pickup_address: Mapped[str] = mapped_column(String(500))
     destination_address: Mapped[str] = mapped_column(String(500))
+    pickup_latitude: Mapped[float | None] = mapped_column(Float)
+    pickup_longitude: Mapped[float | None] = mapped_column(Float)
+    destination_latitude: Mapped[float | None] = mapped_column(Float)
+    destination_longitude: Mapped[float | None] = mapped_column(Float)
     payment_method: Mapped[str] = mapped_column(String(32))
     accepted_fare_cents: Mapped[int] = mapped_column(Integer)
     idempotency_key: Mapped[str] = mapped_column(String(100))
@@ -172,6 +236,38 @@ class DispatchOffer(Base):
     driver_id: Mapped[str] = mapped_column(ForeignKey("driver_profiles.id"), index=True)
     status: Mapped[str] = mapped_column(String(24), default="PENDING")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DispatchCandidate(Base):
+    __tablename__ = "dispatch_candidates"
+    __table_args__ = (
+        UniqueConstraint("trip_id", "driver_id", name="uq_dispatch_candidate"),
+        Index("ix_dispatch_candidate_rank", "trip_id", "rank"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id", ondelete="CASCADE"))
+    driver_id: Mapped[str] = mapped_column(ForeignKey("driver_profiles.id"))
+    search_radius_miles: Mapped[float] = mapped_column(Float)
+    straight_line_miles: Mapped[float] = mapped_column(Float)
+    road_distance_miles: Mapped[float] = mapped_column(Float)
+    pickup_eta_seconds: Mapped[int] = mapped_column(Integer)
+    score: Mapped[float] = mapped_column(Float)
+    rank: Mapped[int] = mapped_column(Integer)
+    routing_provider: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FraudRiskEvent(Base):
+    __tablename__ = "fraud_risk_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    actor_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="REVIEW")
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

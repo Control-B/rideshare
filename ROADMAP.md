@@ -9,13 +9,19 @@
 - reported cash collection with balanced ledger entries
 - SQLite demo plus PostgreSQL/PostGIS/Redis container foundation
 - migrations, CI, API contract, tests, and operating documentation
+- foreground driver location with freshness, accuracy, and anomaly validation
+- PostGIS service zones, spatial indexes, configurable radius expansion, and
+  deterministic road-ETA ranking
+- ranked offers, atomic assignment, rejection/expiration recovery, and WebSocket
+  client updates
+- privacy-rounded nearby vehicles and Apple Maps/Google Maps native rendering
 
 ## Next milestone
 
-- geocoding, routing, and platform-specific map adapters
-- PostGIS driver location/service-area matching
-- transactional outbox, Redis worker, WebSockets, and push/SMS adapters
-- PostgreSQL simultaneous-acceptance and failure-recovery tests
+- authorized geocoding and live routing/traffic provider adapters
+- transactional outbox, Redis WebSocket fan-out, durable recovery worker, and
+  push/SMS adapters
+- PostgreSQL simultaneous-acceptance, PostGIS query-plan, and failure-recovery tests
 - sandbox marketplace card payment and complete ledger batches
 - dispatcher web view for pending/active/failed trips
 

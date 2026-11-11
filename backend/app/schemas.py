@@ -36,6 +36,10 @@ class QuoteRequest(BaseModel):
     destination_address: str = Field(min_length=3, max_length=500)
     estimated_miles: float = Field(default=5, gt=0, le=500)
     estimated_minutes: int = Field(default=15, gt=0, le=1440)
+    pickup_latitude: float | None = Field(default=None, ge=-90, le=90)
+    pickup_longitude: float | None = Field(default=None, ge=-180, le=180)
+    destination_latitude: float | None = Field(default=None, ge=-90, le=90)
+    destination_longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class QuoteResponse(BaseModel):
@@ -55,6 +59,10 @@ class BookingRequest(BaseModel):
     guest_passenger_phone: str | None = Field(default=None, max_length=32)
     guest_communication_consent: bool = False
     payment_responsibility: str = "BOOKER"
+    pickup_latitude: float | None = Field(default=None, ge=-90, le=90)
+    pickup_longitude: float | None = Field(default=None, ge=-180, le=180)
+    destination_latitude: float | None = Field(default=None, ge=-90, le=90)
+    destination_longitude: float | None = Field(default=None, ge=-180, le=180)
 
     @model_validator(mode="after")
     def validate_guest(self) -> "BookingRequest":
@@ -63,6 +71,16 @@ class BookingRequest(BaseModel):
                 raise ValueError("Guest name and phone are required")
             if not self.guest_communication_consent:
                 raise ValueError("Guest communication consent is required")
+        coordinate_values = (
+            self.pickup_latitude,
+            self.pickup_longitude,
+            self.destination_latitude,
+            self.destination_longitude,
+        )
+        if any(value is not None for value in coordinate_values) and any(
+            value is None for value in coordinate_values
+        ):
+            raise ValueError("All pickup and destination coordinates are required together")
         return self
 
 
@@ -100,6 +118,62 @@ class OfferView(BaseModel):
     pickup_address: str
     destination_address: str
     fare_cents: int
+    pickup_eta_seconds: int | None = None
+    estimated_trip_miles: float | None = None
+    expected_earnings_cents: int | None = None
+
+
+class DriverLocationRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float = Field(ge=0, le=10_000)
+    speed_mps: float | None = Field(default=None, ge=0, le=500)
+    heading_degrees: float | None = Field(default=None, ge=0, lt=360)
+    observed_at: datetime
+
+
+class DriverLocationView(BaseModel):
+    driver_id: str
+    accepted: bool
+    anomaly_code: str | None
+    observed_at: datetime
+    expires_at: datetime | None
+
+
+class NearbyVehicleView(BaseModel):
+    vehicle_id: str
+    latitude: float
+    longitude: float
+    category: str = "STANDARD"
+    approximate: bool = True
+    updated_at: datetime
+
+
+class RouteEstimateRequest(BaseModel):
+    origin_latitude: float = Field(ge=-90, le=90)
+    origin_longitude: float = Field(ge=-180, le=180)
+    destination_latitude: float = Field(ge=-90, le=90)
+    destination_longitude: float = Field(ge=-180, le=180)
+
+
+class RouteEstimateView(BaseModel):
+    distance_miles: float
+    duration_seconds: int
+    provider: str
+    synthetic: bool
+
+
+class DispatchCandidateView(BaseModel):
+    driver_id: str
+    pickup_eta_seconds: int
+    road_distance_miles: float
+    search_radius_miles: float
+    rank: int
+
+
+class DispatchPreviewRequest(BaseModel):
+    pickup_latitude: float = Field(ge=-90, le=90)
+    pickup_longitude: float = Field(ge=-180, le=180)
 
 
 class TransitionRequest(BaseModel):

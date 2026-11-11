@@ -21,6 +21,17 @@ The demo endpoint and seeded credentials must be disabled in production. The fro
 contains no server secrets. Client role checks improve UX only; backend checks are
 authoritative.
 
+Driver location is accepted only for approved drivers and is checked for timestamp,
+accuracy, and impossible-speed anomalies. An anomaly creates a review event; it does
+not automatically suspend a driver. Pre-assignment nearby-vehicle responses round
+coordinates to reduce unnecessary precision. Production must additionally enforce
+location retention/deletion policy, encrypt sensitive history, rate-limit ingestion,
+and restrict fraud-review access.
+
+WebSocket authentication currently uses the bearer token as a query parameter because
+browser WebSocket APIs cannot set authorization headers. Production should issue a
+short-lived, single-purpose socket ticket and ensure URLs are redacted from logs.
+
 The current cash ledger is a minimal balanced trip record, not a complete accounting
 subledger. Refund, reconciliation, chargeback, subscription, payout, and immutable
 batch controls remain production blockers.

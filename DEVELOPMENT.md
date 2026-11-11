@@ -44,9 +44,15 @@ npx expo run:android
 # macOS: npx expo run:ios
 ```
 
-The current map area is a synthetic route visualization. A provider-backed native/web
-map adapter and geocoding service are intentionally deferred; no fake geocoding or
-route result is represented as live.
+Native maps use Apple Maps on iOS and Google Maps on Android. Web retains a lightweight
+preview until a browser map provider is configured. The route adapter is deterministic
+and labeled synthetic; no provider-backed traffic or geocoding is represented as live.
+
+Approved drivers send foreground location while online. Expo Go does not support the
+production background-location workflow on iOS and has Android limitations. Use a
+development build for background tracking. Expo SDK 57 also requires a compatible
+Expo Go client; when the App Store client supports another SDK, use a development
+build or matching simulator instead of treating the mismatch as an app crash.
 
 ## Configuration
 
@@ -56,6 +62,13 @@ Backend variables use the `MOBILITY_` prefix:
 - `MOBILITY_JWT_SECRET` (must be replaced outside local development)
 - `MOBILITY_CORS_ORIGINS`
 - `MOBILITY_ENVIRONMENT`
+- `MOBILITY_DISPATCH_SEARCH_RADII_MILES` (default `2,5,10`)
+- `MOBILITY_DRIVER_LOCATION_STALE_SECONDS`
+- `MOBILITY_DRIVER_PRESENCE_TTL_SECONDS`
+- `MOBILITY_DRIVER_MAX_ACCURACY_METERS`
+- `MOBILITY_DRIVER_MAX_SPEED_MPS`
+- `MOBILITY_DISPATCH_OFFER_SECONDS`
+- `MOBILITY_DISPATCH_OFFER_GROUP_SIZE`
 
 Never put server, payment, model, SMS, or telephony secrets in `EXPO_PUBLIC_*`
 variables; those are bundled into the client.

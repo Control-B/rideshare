@@ -43,6 +43,9 @@ export type Offer = {
   pickup_address: string;
   destination_address: string;
   fare_cents: number;
+  pickup_eta_seconds: number | null;
+  estimated_trip_miles: number | null;
+  expected_earnings_cents: number;
 };
 
 export type Quote = {
@@ -50,4 +53,19 @@ export type Quote = {
   currency: string;
   breakdown: Record<string, number>;
   synthetic: boolean;
+};
+
+export type DriverLocation = {
+  driver_id: string;
+  accepted: boolean;
+  anomaly_code: string | null;
+  observed_at: string;
+  expires_at: string | null;
+};
+
+export type NearbyVehicle = {
+  vehicle_id: string;
+  latitude: number;
+  longitude: number;
+  updated_at: string;
 };

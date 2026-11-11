@@ -1,4 +1,22 @@
-# Welcome to your Expo app 👋
+# Mobility universal app
+
+Run these commands from the repository root (not from your home directory):
+
+```bash
+cd frontend/universal-app
+npm install
+EXPO_PUBLIC_API_URL=http://YOUR_COMPUTER_LAN_IP:8000 npx expo start --clear
+```
+
+The app uses Expo SDK 57. A physical iPhone needs a compatible Expo client; if the App
+Store Expo Go version supports a different SDK, use an iOS simulator or an Expo
+development build. A QR code cannot resolve that SDK mismatch. The API URL must use
+your computer's LAN address because `localhost` on the phone means the phone.
+
+Foreground driver tracking works in the Expo Go-compatible path. Background location
+requires a development build.
+
+## Expo template reference
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 

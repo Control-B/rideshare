@@ -2,8 +2,9 @@
 
 An original, production-oriented foundation for a unified rider/driver product. This
 repository currently implements the first end-to-end vertical slice: unified login,
-interface switching, deterministic fare quotes, guest bookings, driver offers, atomic
-acceptance, authoritative trip transitions, and cash collection recording.
+interface switching, deterministic fare quotes, guest bookings, validated foreground
+driver location, ETA-ranked geospatial dispatch, atomic offers, real-time updates,
+authoritative trip transitions, and cash collection recording.
 
 This is an incremental MVP, not the completed multi-phase platform. Synthetic/demo
 features are visibly labeled and no paid provider is activated.
@@ -38,7 +39,7 @@ cp .env.example .env.local
 npm start
 ```
 
-Press `w` for web or scan the QR code with Expo Go. For a physical device, set
+Press `w` for web or scan the QR code with a compatible Expo client. For a physical device, set
 `EXPO_PUBLIC_API_URL` to the development machine's LAN URL, such as
 `http://192.168.1.20:8000`; `localhost` points to the phone itself.
 
@@ -69,10 +70,9 @@ npx expo export --platform web
 
 ## Expo Go versus development builds
 
-Expo Go supports this milestone's authentication, mode switch, booking, driver
-onboarding state, foreground location, simulated route display, dispatch, trip state,
-and cash flow. Background driver location, production push, native payment SDKs, and
-always-on driving behavior require an Expo development build. See
+Foreground location has an Expo Go-compatible code path, but SDK 57 must match the
+installed Expo client. Background driver location, production push, native payment
+SDKs, and always-on driving behavior require an Expo development build. See
 [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ## Documentation

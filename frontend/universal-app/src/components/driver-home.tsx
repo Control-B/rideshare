@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Location from 'expo-location';
 import {
   Banknote,
   CarFront,
@@ -18,10 +19,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import React from 'react';
 
 import { api } from '@/lib/api';
 import { colors, radius, shadow } from '@/lib/theme';
 import type { Trip } from '@/lib/types';
+import { useRealtimeUpdates } from '@/lib/use-realtime';
 import { useAppStore } from '@/store/app-store';
 
 const NEXT_STATE: Record<string, { state: string; label: string }> = {
@@ -35,15 +38,22 @@ export function DriverHome() {
   const token = useAppStore((state) => state.token)!;
   const user = useAppStore((state) => state.user)!;
   const updateUser = useAppStore((state) => state.updateUser);
+  useRealtimeUpdates(token, user.id);
   const queryClient = useQueryClient();
   const approved = user.driver_approved;
   const isOnline = user.driver_availability !== 'OFFLINE';
+  const [locationStatus, setLocationStatus] = React.useState(
+    isOnline ? 'Starting foreground location…' : 'Location off',
+  );
+  const [now, setNow] = React.useState(() => Date.now());
   const trips = useQuery({
     queryKey: ['trips', user.id],
     queryFn: () => api.trips(token),
     enabled: approved,
     refetchInterval: 5_000,
   });
+  const activeTrip = trips.data?.find((trip) => NEXT_STATE[trip.state]);
+  const locationInterval = activeTrip ? 4_000 : 8_000;
   const offers = useQuery({
     queryKey: ['offers'],
     queryFn: () => api.offers(token),
@@ -54,12 +64,80 @@ export function DriverHome() {
     queryClient.invalidateQueries({ queryKey: ['trips', user.id] });
     queryClient.invalidateQueries({ queryKey: ['offers'] });
   };
+  const sendLocation = React.useCallback(
+    async (location: Location.LocationObject) => {
+      const result = await api.updateDriverLocation(token, {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy_meters: location.coords.accuracy ?? 100,
+        speed_mps: location.coords.speed,
+        heading_degrees: location.coords.heading,
+        observed_at: new Date(location.timestamp).toISOString(),
+      });
+      setLocationStatus(
+        result.accepted
+          ? 'Foreground location active'
+          : `Location needs attention · ${result.anomaly_code}`,
+      );
+    },
+    [token],
+  );
+  React.useEffect(() => {
+    if (!approved || !isOnline) {
+      return;
+    }
+    let subscription: Location.LocationSubscription | undefined;
+    let mounted = true;
+    void (async () => {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!mounted) return;
+      if (permission.status !== 'granted') {
+        setLocationStatus('Location permission required');
+        return;
+      }
+      setLocationStatus('Acquiring foreground location…');
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 25,
+          timeInterval: locationInterval,
+        },
+        (location) => void sendLocation(location).catch(() => {
+          if (mounted) setLocationStatus('Location upload interrupted · retrying');
+        }),
+      );
+    })();
+    return () => {
+      mounted = false;
+      subscription?.remove();
+    };
+  }, [approved, isOnline, locationInterval, sendLocation]);
+  React.useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, []);
   const availability = useMutation({
-    mutationFn: () => api.availability(token, isOnline ? 'OFFLINE' : 'ONLINE'),
+    mutationFn: async () => {
+      if (!isOnline) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') {
+          throw new Error('Foreground location permission is required to go online.');
+        }
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        await sendLocation(location);
+      }
+      return api.availability(token, isOnline ? 'OFFLINE' : 'ONLINE');
+    },
     onSuccess: updateUser,
   });
   const accept = useMutation({
     mutationFn: (offerId: string) => api.acceptOffer(token, offerId),
+    onSuccess: invalidate,
+  });
+  const decline = useMutation({
+    mutationFn: (offerId: string) => api.rejectOffer(token, offerId),
     onSuccess: invalidate,
   });
   const transition = useMutation({
@@ -113,7 +191,6 @@ export function DriverHome() {
     );
   }
 
-  const activeTrip = trips.data?.find((trip) => NEXT_STATE[trip.state]);
   const next = activeTrip ? NEXT_STATE[activeTrip.state] : null;
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.page}>
@@ -124,10 +201,15 @@ export function DriverHome() {
           <Text style={styles.subtitle}>
             {user.driver_availability} · Blue demo sedan
           </Text>
+          <Text style={styles.locationStatus}>
+            {isOnline ? locationStatus : 'Location off'}
+          </Text>
         </View>
         <Pressable
           accessibilityLabel={isOnline ? 'Go offline' : 'Go online'}
-          disabled={Boolean(activeTrip) || availability.isPending}
+          disabled={
+            Boolean(activeTrip) || Boolean(offers.data?.length) || availability.isPending
+          }
           onPress={() => availability.mutate()}
           style={[styles.power, isOnline && styles.powerOnline]}>
           {availability.isPending ? (
@@ -201,19 +283,37 @@ export function DriverHome() {
               <Text style={styles.offerEyebrow}>NEW RIDE OFFER</Text>
               <Text style={styles.offerFare}>${(offer.fare_cents / 100).toFixed(2)}</Text>
             </View>
-            <Text style={styles.offerTimer}>90 sec</Text>
+            <Text style={styles.offerTimer}>
+              {Math.max(0, Math.ceil((new Date(offer.expires_at).getTime() - now) / 1000))} sec
+            </Text>
           </View>
+          <Text style={styles.offerMeta}>
+            {offer.pickup_eta_seconds
+              ? `${Math.ceil(offer.pickup_eta_seconds / 60)} min pickup · `
+              : ''}
+            Earn ${(offer.expected_earnings_cents / 100).toFixed(2)}
+          </Text>
           <Text style={styles.offerRoute}>{offer.pickup_address}</Text>
           <Text style={styles.offerArrow}>↓</Text>
           <Text style={styles.offerRoute}>{offer.destination_address}</Text>
-          {accept.error ? <Text style={styles.error}>{accept.error.message}</Text> : null}
-          <Pressable
-            disabled={accept.isPending}
-            onPress={() => accept.mutate(offer.id)}
-            style={styles.primary}>
-            <Text style={styles.primaryText}>Accept ride</Text>
-            <CheckCircle2 color={colors.white} size={19} />
-          </Pressable>
+          {accept.error || decline.error ? (
+            <Text style={styles.error}>{(accept.error || decline.error)?.message}</Text>
+          ) : null}
+          <View style={styles.offerActions}>
+            <Pressable
+              disabled={decline.isPending || accept.isPending}
+              onPress={() => decline.mutate(offer.id)}
+              style={styles.decline}>
+              <Text style={styles.declineText}>Decline</Text>
+            </Pressable>
+            <Pressable
+              disabled={accept.isPending || decline.isPending}
+              onPress={() => accept.mutate(offer.id)}
+              style={[styles.primary, styles.accept]}>
+              <Text style={styles.primaryText}>Accept ride</Text>
+              <CheckCircle2 color={colors.white} size={19} />
+            </Pressable>
+          </View>
         </View>
       ))}
 
@@ -240,6 +340,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.emerald, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   title: { color: colors.ink, fontSize: 30, lineHeight: 36, fontWeight: '800', marginTop: 4 },
   subtitle: { color: colors.muted, fontSize: 14, marginTop: 4 },
+  locationStatus: { color: colors.emerald, fontSize: 11, fontWeight: '700', marginTop: 5 },
   driverTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   power: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
   powerOnline: { backgroundColor: colors.emerald, borderColor: colors.emerald },
@@ -272,8 +373,13 @@ const styles = StyleSheet.create({
   offerEyebrow: { color: colors.emerald, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   offerFare: { color: colors.ink, fontSize: 26, fontWeight: '900', marginTop: 2 },
   offerTimer: { color: colors.amber, fontWeight: '800', backgroundColor: '#FFF4DD', paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
+  offerMeta: { color: colors.emerald, fontSize: 12, fontWeight: '800' },
   offerRoute: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   offerArrow: { color: colors.emerald, fontSize: 18 },
+  offerActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  accept: { flex: 2 },
+  decline: { flex: 1, minHeight: 52, borderRadius: radius.medium, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  declineText: { color: colors.ink, fontWeight: '800' },
   error: { color: '#FFD0CC', fontSize: 12 },
   earningsRow: { flexDirection: 'row', gap: 12 },
   metric: { flex: 1, backgroundColor: colors.white, borderRadius: radius.medium, padding: 16, gap: 4 },

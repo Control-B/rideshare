@@ -30,16 +30,21 @@ def create_access_token(user_id: str) -> str:
     return jwt.encode({"sub": user_id, "exp": expires}, settings.jwt_secret, algorithm="HS256")
 
 
+def decode_access_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, get_settings().jwt_secret, algorithms=["HS256"])
+        return payload["sub"]
+    except (InvalidTokenError, KeyError) as exc:
+        raise ValueError("Invalid or expired token") from exc
+
+
 def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer)],
     session: Annotated[Session, Depends(get_session)],
 ) -> User:
     try:
-        payload = jwt.decode(
-            credentials.credentials, get_settings().jwt_secret, algorithms=["HS256"]
-        )
-        user_id = payload["sub"]
-    except (InvalidTokenError, KeyError) as exc:
+        user_id = decode_access_token(credentials.credentials)
+    except ValueError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token") from exc
     user = session.get(User, user_id)
     if user is None or not user.is_active:

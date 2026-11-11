@@ -6,8 +6,11 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.config import get_settings
+from app.geospatial import point_in_active_service_zone, rank_available_drivers
 from app.models import (
     CashCollection,
+    DispatchCandidate,
     DispatchOffer,
     DriverProfile,
     DriverState,
@@ -95,6 +98,10 @@ def create_booking(
         payment_responsibility=payload.payment_responsibility,
         pickup_address=payload.pickup_address,
         destination_address=payload.destination_address,
+        pickup_latitude=payload.pickup_latitude,
+        pickup_longitude=payload.pickup_longitude,
+        destination_latitude=payload.destination_latitude,
+        destination_longitude=payload.destination_longitude,
         payment_method=payload.payment_method.value,
         accepted_fare_cents=payload.accepted_fare_cents,
         idempotency_key=idempotency_key,
@@ -112,16 +119,56 @@ def create_booking(
     )
     session.add(event)
 
-    eligible_drivers = session.scalars(
-        select(DriverProfile).where(
-            DriverProfile.approved.is_(True),
-            DriverProfile.availability == DriverState.AVAILABLE.value,
-            DriverProfile.user_id != user.id,
+    settings = get_settings()
+    offered_driver_ids: list[str] = []
+    if payload.pickup_latitude is not None and payload.pickup_longitude is not None:
+        if not point_in_active_service_zone(
+            session, payload.pickup_latitude, payload.pickup_longitude
+        ):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "Pickup is outside an active, compliance-reviewed service zone",
+            )
+        ranked = rank_available_drivers(
+            session,
+            payload.pickup_latitude,
+            payload.pickup_longitude,
+            excluded_user_id=user.id,
+            settings=settings,
         )
-    ).all()
-    expires_at = datetime.now(UTC) + timedelta(seconds=90)
-    for driver in eligible_drivers:
-        session.add(DispatchOffer(trip_id=trip.id, driver_id=driver.id, expires_at=expires_at))
+        for rank, candidate in enumerate(ranked, start=1):
+            session.add(
+                DispatchCandidate(
+                    trip_id=trip.id,
+                    driver_id=candidate.driver_id,
+                    search_radius_miles=candidate.search_radius_miles,
+                    straight_line_miles=candidate.straight_line_miles,
+                    road_distance_miles=candidate.road_distance_miles,
+                    pickup_eta_seconds=candidate.pickup_eta_seconds,
+                    score=candidate.score,
+                    rank=rank,
+                    routing_provider=candidate.routing_provider,
+                )
+            )
+        offered_driver_ids = [
+            candidate.driver_id for candidate in ranked[: settings.dispatch_offer_group_size]
+        ]
+    else:
+        eligible_drivers = session.scalars(
+            select(DriverProfile).where(
+                DriverProfile.approved.is_(True),
+                DriverProfile.availability == DriverState.AVAILABLE.value,
+                DriverProfile.user_id != user.id,
+            )
+        ).all()
+        offered_driver_ids = [driver.id for driver in eligible_drivers]
+
+    expires_at = datetime.now(UTC) + timedelta(seconds=settings.dispatch_offer_seconds)
+    for driver_id in offered_driver_ids:
+        session.add(DispatchOffer(trip_id=trip.id, driver_id=driver_id, expires_at=expires_at))
+        driver = session.get(DriverProfile, driver_id)
+        if driver:
+            driver.availability = DriverState.OFFER_PENDING.value
     session.commit()
     return session.scalar(trip_query().where(Trip.id == trip.id))  # type: ignore[return-value]
 
@@ -143,6 +190,8 @@ def accept_offer(session: Session, user: User, offer_id: str) -> Trip:
         expires_at = expires_at.replace(tzinfo=UTC)
     if expires_at < datetime.now(UTC):
         offer.status = "EXPIRED"
+        driver.availability = DriverState.AVAILABLE.value
+        issue_next_candidate_offer(session, offer.trip_id)
         session.commit()
         raise HTTPException(status.HTTP_409_CONFLICT, "Offer expired")
     if driver.availability not in {
@@ -172,6 +221,15 @@ def accept_offer(session: Session, user: User, offer_id: str) -> Trip:
     assert trip is not None
     offer.status = "ACCEPTED"
     driver.availability = DriverState.ASSIGNED.value
+    competing_driver_ids = list(
+        session.scalars(
+            select(DispatchOffer.driver_id).where(
+                DispatchOffer.trip_id == trip.id,
+                DispatchOffer.id != offer.id,
+                DispatchOffer.status == "PENDING",
+            )
+        )
+    )
     session.execute(
         update(DispatchOffer)
         .where(
@@ -181,6 +239,15 @@ def accept_offer(session: Session, user: User, offer_id: str) -> Trip:
         )
         .values(status="REJECTED")
     )
+    if competing_driver_ids:
+        session.execute(
+            update(DriverProfile)
+            .where(
+                DriverProfile.id.in_(competing_driver_ids),
+                DriverProfile.availability == DriverState.OFFER_PENDING.value,
+            )
+            .values(availability=DriverState.AVAILABLE.value)
+        )
     session.add(
         TripEvent(
             trip_id=trip.id,
@@ -193,6 +260,88 @@ def accept_offer(session: Session, user: User, offer_id: str) -> Trip:
     )
     session.commit()
     return session.scalar(trip_query().where(Trip.id == trip.id))  # type: ignore[return-value]
+
+
+def issue_next_candidate_offer(session: Session, trip_id: str) -> DispatchOffer | None:
+    trip = session.get(Trip, trip_id)
+    if not trip or trip.state != TripState.SEARCHING.value or trip.assigned_driver_id:
+        return None
+    previously_offered = set(
+        session.scalars(select(DispatchOffer.driver_id).where(DispatchOffer.trip_id == trip_id))
+    )
+    candidate = session.scalar(
+        select(DispatchCandidate)
+        .join(DriverProfile, DispatchCandidate.driver_id == DriverProfile.id)
+        .where(
+            DispatchCandidate.trip_id == trip_id,
+            DispatchCandidate.driver_id.not_in(previously_offered),
+            DriverProfile.approved.is_(True),
+            DriverProfile.availability == DriverState.AVAILABLE.value,
+        )
+        .order_by(DispatchCandidate.rank)
+    )
+    if not candidate:
+        return None
+    driver = session.get(DriverProfile, candidate.driver_id)
+    assert driver is not None
+    driver.availability = DriverState.OFFER_PENDING.value
+    offer = DispatchOffer(
+        trip_id=trip_id,
+        driver_id=driver.id,
+        expires_at=datetime.now(UTC) + timedelta(seconds=get_settings().dispatch_offer_seconds),
+    )
+    session.add(offer)
+    return offer
+
+
+def recover_expired_offers(session: Session) -> list[Trip]:
+    now = datetime.now(UTC)
+    expired = list(
+        session.scalars(
+            select(DispatchOffer).where(
+                DispatchOffer.status == "PENDING",
+                DispatchOffer.expires_at < now,
+            )
+        )
+    )
+    trip_ids: set[str] = set()
+    for offer in expired:
+        offer.status = "EXPIRED"
+        driver = session.get(DriverProfile, offer.driver_id)
+        if driver and driver.availability == DriverState.OFFER_PENDING.value:
+            driver.availability = DriverState.AVAILABLE.value
+        trip_ids.add(offer.trip_id)
+    session.flush()
+    for trip_id in trip_ids:
+        issue_next_candidate_offer(session, trip_id)
+    if trip_ids:
+        session.commit()
+    return [
+        trip
+        for trip_id in trip_ids
+        if (trip := session.scalar(trip_query().where(Trip.id == trip_id)))
+    ]
+
+
+def reject_offer(session: Session, user: User, offer_id: str) -> Trip:
+    driver = session.scalar(select(DriverProfile).where(DriverProfile.user_id == user.id))
+    if not driver or not driver.approved:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Approved driver profile required")
+    offer = session.scalar(
+        select(DispatchOffer).where(
+            DispatchOffer.id == offer_id, DispatchOffer.driver_id == driver.id
+        )
+    )
+    if not offer or offer.status != "PENDING":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Offer is no longer available")
+    offer.status = "REJECTED"
+    driver.availability = DriverState.AVAILABLE.value
+    issue_next_candidate_offer(session, offer.trip_id)
+    session.commit()
+    trip = session.scalar(trip_query().where(Trip.id == offer.trip_id))
+    if not trip:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trip not found")
+    return trip
 
 
 def transition_trip(

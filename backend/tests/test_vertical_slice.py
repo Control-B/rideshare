@@ -106,3 +106,11 @@ def test_driver_onboarding_does_not_grant_approval(client: TestClient, rider_aut
     assert response.status_code == 200
     assert response.json()["driver_approved"] is False
     assert "DRIVER_APPLICANT" in response.json()["roles"]
+
+
+def test_authenticated_realtime_connection(client: TestClient, rider_auth: dict[str, str]):
+    token = rider_auth["Authorization"].removeprefix("Bearer ")
+    with client.websocket_connect(f"/api/v1/realtime?token={token}") as websocket:
+        assert websocket.receive_json() == {"type": "CONNECTED"}
+        websocket.send_text("ping")
+        assert websocket.receive_json() == {"type": "pong"}
